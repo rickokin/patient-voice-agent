@@ -11,12 +11,24 @@ const globalForDb = globalThis as unknown as {
   pvaPool?: Pool;
 };
 
-const pool =
-  globalForDb.pvaPool ??
-  new Pool({
-    connectionString: requireDatabaseUrl(),
+/**
+ * Build pool config from DATABASE_URL while avoiding the `pg-connection-string`
+ * deprecation warning for `sslmode=require`. We strip the SSL-related query
+ * params from the URL and configure TLS explicitly, preserving certificate
+ * verification (equivalent to the current `verify-full` behavior).
+ */
+function poolConfig() {
+  const url = new URL(requireDatabaseUrl());
+  url.searchParams.delete("sslmode");
+  url.searchParams.delete("channel_binding");
+  return {
+    connectionString: url.toString(),
+    ssl: { rejectUnauthorized: true },
     max: 10,
-  });
+  };
+}
+
+const pool = globalForDb.pvaPool ?? new Pool(poolConfig());
 
 if (process.env.NODE_ENV !== "production") {
   globalForDb.pvaPool = pool;

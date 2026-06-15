@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { db } from "@/db/client";
 import { allowedEmails, users } from "@/db/schema";
 import { NotAuthorizedError } from "@/lib/http";
@@ -15,15 +15,29 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-/** Look up an email on the allowlist (case-insensitive). */
-async function lookupAllowlist(
-  email: string,
-): Promise<{ allowed: boolean; role?: string }> {
+/**
+ * Find the first of the given emails that is on the allowlist (case-insensitive).
+ * Accepts multiple addresses so a Clerk account is matched on ANY of its emails,
+ * not just the one Clerk happens to mark "primary".
+ */
+async function findAllowlistMatch(
+  emails: Array<string | null | undefined>,
+): Promise<{ email: string; role: string } | null> {
+  const normalized = [
+    ...new Set(
+      emails
+        .filter((e): e is string => !!e)
+        .map(normalizeEmail)
+        .filter(Boolean),
+    ),
+  ];
+  if (normalized.length === 0) return null;
+
   const [row] = await db
-    .select({ role: allowedEmails.role })
+    .select({ email: allowedEmails.email, role: allowedEmails.role })
     .from(allowedEmails)
-    .where(eq(allowedEmails.email, normalizeEmail(email)));
-  return row ? { allowed: true, role: row.role } : { allowed: false };
+    .where(inArray(allowedEmails.email, normalized));
+  return row ?? null;
 }
 
 /**
@@ -51,26 +65,39 @@ export async function getCurrentUserId(): Promise<string | null> {
     .from(users)
     .where(eq(users.clerkUserId, clerkUserId));
 
-  if (existing) {
-    // Re-enforce the allowlist using the stored email (no Clerk API round-trip).
-    if (!existing.email) return null;
-    const { allowed } = await lookupAllowlist(existing.email);
-    return allowed ? existing.id : null;
+  // Fast path: a provisioned row with a stored email -> re-check the allowlist
+  // cheaply (no Clerk API round-trip) so access can be revoked.
+  if (existing?.email) {
+    const match = await findAllowlistMatch([existing.email]);
+    return match ? existing.id : null;
   }
 
-  // First sign-in: provision only if the Clerk primary email is allowlisted.
+  // Otherwise we need the Clerk email(s): a first sign-in, or a legacy row
+  // provisioned before the email column existed. Match against ALL addresses on
+  // the account so a non-primary (but verified) allowlisted email still works.
   const { currentUser } = await import("@clerk/nextjs/server");
   const clerkUser = await currentUser();
-  const email = clerkUser?.primaryEmailAddress?.emailAddress;
-  if (!email) return null;
+  if (!clerkUser) return null;
 
-  const { allowed, role } = await lookupAllowlist(email);
-  if (!allowed) return null;
+  const candidateEmails = [
+    clerkUser.primaryEmailAddress?.emailAddress,
+    ...clerkUser.emailAddresses.map((e) => e.emailAddress),
+  ];
+  const match = await findAllowlistMatch(candidateEmails);
+  if (!match) return null;
 
-  const normalized = normalizeEmail(email);
+  // Backfill the matched email onto a legacy row.
+  if (existing) {
+    await db
+      .update(users)
+      .set({ email: match.email })
+      .where(eq(users.id, existing.id));
+    return existing.id;
+  }
+
   const [created] = await db
     .insert(users)
-    .values({ clerkUserId, email: normalized, role: role ?? "curator" })
+    .values({ clerkUserId, email: match.email, role: match.role })
     .onConflictDoNothing({ target: users.clerkUserId })
     .returning({ id: users.id });
   if (created) return created.id;

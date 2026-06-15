@@ -2,8 +2,12 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 /**
+ * Next.js Proxy (formerly "middleware"). Enforces authentication on protected
+ * routes; authorization (the allowlist) is enforced server-side in route
+ * handlers and the admin/agent layouts.
+ *
  * Auth is only enforced when Clerk keys are present, so the app still boots
- * (home + demo agent) before credentials are configured.
+ * (home page) before credentials are configured.
  */
 const authEnabled =
   !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY &&
@@ -25,7 +29,7 @@ export default authEnabled
         await auth.protect();
       }
     })
-  : function middleware() {
+  : function proxy() {
       return NextResponse.next();
     };
 

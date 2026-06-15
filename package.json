@@ -15,6 +15,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "allowlist": "tsx scripts/allowlist.ts",
+    "allowlist:diagnose": "tsx scripts/diagnose-allowlist.ts",
     "smoke:llm": "tsx scripts/smoke-llm.ts",
     "smoke:pipeline": "tsx scripts/smoke-pipeline.ts"
   },
