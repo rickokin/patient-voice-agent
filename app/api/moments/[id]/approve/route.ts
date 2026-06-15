@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { approveMoment, rejectMoment } from "@/core/moments/moment-service";
 import { embedMoment } from "@/core/embeddings/embedding-service";
-import { getCurrentUserId } from "@/lib/auth";
+import { requireUserId } from "@/lib/auth";
 import { handleError, json } from "@/lib/http";
 
 const bodySchema = z
@@ -16,6 +16,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
+    const approvedBy = await requireUserId();
     const { id } = await params;
     const raw = await req.json().catch(() => ({}));
     const { action, embed } = bodySchema.parse(raw);
@@ -24,7 +25,6 @@ export async function POST(
       return json(await rejectMoment(id));
     }
 
-    const approvedBy = await getCurrentUserId();
     const moment = await approveMoment(id, approvedBy);
 
     // Embed on approval so the moment is immediately retrievable.

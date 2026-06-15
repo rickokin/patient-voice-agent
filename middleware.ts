@@ -11,6 +11,8 @@ const authEnabled =
 
 const isProtectedRoute = createRouteMatcher([
   "/admin(.*)",
+  "/agent(.*)",
+  "/api/agent(.*)",
   "/api/transcripts(.*)",
   "/api/moments(.*)",
   "/api/embeddings(.*)",

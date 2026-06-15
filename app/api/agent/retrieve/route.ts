@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { retrieveByText } from "@/core/retrieval/retrieval-service";
+import { requireUserId } from "@/lib/auth";
 import { handleError, json } from "@/lib/http";
 
 const schema = z.object({
@@ -11,6 +12,7 @@ const schema = z.object({
 /** Retrieval-only endpoint for debugging / future tools. */
 export async function POST(req: Request) {
   try {
+    await requireUserId();
     const { query, topK, minScore } = schema.parse(await req.json());
     const moments = await retrieveByText(query, { topK, minScore });
     return json({ count: moments.length, moments });

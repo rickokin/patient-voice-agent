@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { ask } from "@/core/answers/answer-service";
 import { AUDIENCE_MODES } from "@/core/types";
-import { getCurrentUserId } from "@/lib/auth";
+import { requireUserId } from "@/lib/auth";
 import { handleError, json } from "@/lib/http";
 
 const schema = z.object({
@@ -11,8 +11,8 @@ const schema = z.object({
 
 export async function POST(req: Request) {
   try {
+    const askedBy = await requireUserId();
     const { question, audienceMode } = schema.parse(await req.json());
-    const askedBy = await getCurrentUserId();
     const result = await ask({ question, audienceMode, askedBy });
     return json(result);
   } catch (error) {

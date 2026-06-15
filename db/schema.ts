@@ -19,10 +19,29 @@ import {
  */
 export const EMBEDDING_DIMENSION = 768;
 
+/**
+ * Allowlist of who is permitted to use the app. This is the source of truth for
+ * "known users": a Clerk identity may only be provisioned (and may only keep
+ * access) while its primary email is present here. Seed it with
+ * `npm run allowlist -- add <email> [role]`.
+ */
+export const allowedEmails = pgTable("allowed_emails", {
+  // Stored normalized (trimmed + lowercased) so lookups are case-insensitive.
+  email: text("email").primaryKey(),
+  role: text("role").notNull().default("curator"),
+  note: text("note"),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
+
 /** Clerk-backed users. org_id/role exist now to enable future RBAC/multi-tenancy. */
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   clerkUserId: text("clerk_user_id").notNull().unique(),
+  // Normalized primary email captured at provisioning; used to re-check the
+  // allowlist on every request without an extra Clerk API call.
+  email: text("email"),
   orgId: text("org_id"),
   role: text("role").notNull().default("curator"),
   createdAt: timestamp("created_at", { withTimezone: true })
@@ -146,6 +165,8 @@ export const queryLogMoments = pgTable(
   ],
 );
 
+export type AllowedEmail = typeof allowedEmails.$inferSelect;
+export type NewAllowedEmail = typeof allowedEmails.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type Transcript = typeof transcripts.$inferSelect;
