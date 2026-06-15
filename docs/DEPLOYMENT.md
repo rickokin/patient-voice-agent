@@ -63,15 +63,40 @@ See `docs/ENVIRONMENT.md` for full descriptions.
 
 ## 4. Clerk production setup
 
-The keys in `.env.local` belong to a Clerk **development** instance. For a real
-domain:
+The keys in `.env.local` belong to a Clerk **development** instance, which is
+fine for an MVP/demo on the default `*.vercel.app` URL. A Clerk **production**
+instance is more secure (HTTPS-only, dedicated per-provider OAuth credentials,
+no dev banner, higher limits) but **requires a custom domain you own** — you
+cannot run a production instance on `*.vercel.app` because Clerk needs CNAME
+DNS records (e.g. `clerk.yourdomain.com`) that you can't add to `vercel.app`.
 
-1. In Clerk, create/enable a **Production** instance and add your Vercel domain.
-2. Copy its publishable/secret keys into Vercel env vars (step 3).
-3. Add the production domain to Clerk's allowed origins.
+No application code changes are needed for either path; the switch is entirely
+dashboard + DNS + Vercel env vars.
 
-Auth is boot-safe: if Clerk keys are absent, the app still serves the public
-home + agent pages, and admin/API gating is disabled.
+### Staying on the dev instance (current MVP setup)
+
+Nothing to do. Auth is boot-safe: if Clerk keys are absent the app still serves
+the public home + agent pages and admin gating is simply disabled.
+
+### Switching to a production instance (when you have a domain)
+
+1. **Custom domain** — buy one (Vercel Domains / Namecheap / Cloudflare) and add
+   it to your Vercel project (Project → Settings → Domains). Point your apex /
+   `www` to Vercel per Vercel's instructions.
+2. **Create the production instance** — in the Clerk Dashboard, toggle from
+   *Development* and create a Production instance (clone or start fresh).
+3. **Add Clerk's DNS records** — Clerk's *Domains* page lists the CNAME records
+   to add at your DNS provider (Frontend API `clerk.`, account portal
+   `accounts.`, email `clkmail` + two `clk._domainkey` DKIM records). If using
+   Cloudflare, set them to **DNS only** (no proxy/orange cloud). Then click
+   *Deploy certificates*. Propagation can take up to 48h.
+4. **Swap the keys in Vercel** env vars (step 3) with the production
+   `pk_live_…` / `sk_live_…` keys, and set `NEXT_PUBLIC_APP_URL` to your custom
+   domain. Redeploy.
+5. **Re-register OAuth providers** — production uses your own OAuth credentials
+   (not Clerk's shared dev ones); configure each provider you enabled.
+6. **CAA check** — ensure your domain's CAA records don't block Let's Encrypt or
+   Google Trust Services: `dig <yourdomain> +short CAA`.
 
 ## 5. Migrate the production database
 
