@@ -18,6 +18,31 @@ export default function TranscriptsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [fileName, setFileName] = useState<string | null>(null);
+  const [sourceType, setSourceType] = useState<string | null>(null);
+
+  async function handleFile(file: File) {
+    setError(null);
+    setMessage(null);
+    setBusy("upload");
+    try {
+      const parsed = await api.parseTranscriptFile(file);
+      setRawText(parsed.text);
+      setFileName(file.name);
+      setSourceType(parsed.sourceType);
+      if (!title.trim()) {
+        setTitle(parsed.title);
+      }
+      setMessage(`Loaded "${file.name}". Review the text below before saving.`);
+    } catch (e) {
+      setFileName(null);
+      setError(
+        e instanceof Error ? e.message : "Could not read that file.",
+      );
+    } finally {
+      setBusy(null);
+    }
+  }
 
   const load = useCallback(async () => {
     try {
@@ -67,9 +92,15 @@ export default function TranscriptsPage() {
           onSubmit={(e) => {
             e.preventDefault();
             void run("create", async () => {
-              const t = await api.createTranscript({ title, rawText });
+              const t = await api.createTranscript({
+                title,
+                rawText,
+                sourceType: sourceType ?? "pasted",
+              });
               setTitle("");
               setRawText("");
+              setFileName(null);
+              setSourceType(null);
               setMessage(`Created "${t.title}".`);
               await load();
             });
@@ -82,6 +113,33 @@ export default function TranscriptsPage() {
             required
             className="w-full rounded-md border border-zinc-300 bg-transparent px-3 py-2 text-sm dark:border-zinc-700"
           />
+          <div className="flex flex-wrap items-center gap-3">
+            <label
+              className={`inline-flex items-center rounded-md border border-zinc-300 px-3 py-2 text-sm font-medium dark:border-zinc-700 ${
+                busy === "upload"
+                  ? "cursor-not-allowed opacity-50"
+                  : "cursor-pointer hover:bg-zinc-50 dark:hover:bg-zinc-800"
+              }`}
+            >
+              {busy === "upload" ? "Reading file..." : "Upload file"}
+              <input
+                type="file"
+                accept=".pdf,.doc,.docx,.txt,.md,.markdown,.vtt,.srt,.json,.csv,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain"
+                className="sr-only"
+                disabled={busy === "upload"}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void handleFile(file);
+                  e.target.value = "";
+                }}
+              />
+            </label>
+            <span className="text-xs text-zinc-500">
+              {fileName
+                ? `Loaded "${fileName}" — review below or edit before saving.`
+                : "Upload a PDF, Word (.docx), or text file, or paste below."}
+            </span>
+          </div>
           <textarea
             value={rawText}
             onChange={(e) => setRawText(e.target.value)}

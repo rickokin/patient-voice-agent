@@ -32,6 +32,25 @@ export const api = {
       method: "POST",
       body: JSON.stringify(input),
     }),
+  parseTranscriptFile: async (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/transcripts/parse", {
+      method: "POST",
+      body: form,
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as {
+        error?: string;
+      } | null;
+      throw new Error(body?.error ?? `Upload failed (${res.status})`);
+    }
+    return (await res.json()) as {
+      title: string;
+      text: string;
+      sourceType: "pdf" | "docx" | "text";
+    };
+  },
   normalizeTranscript: (id: string) =>
     apiFetch<Transcript>(`/api/transcripts/${id}/normalize`, {
       method: "POST",
