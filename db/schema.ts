@@ -1,5 +1,6 @@
 import {
   boolean,
+  customType,
   index,
   integer,
   jsonb,
@@ -11,6 +12,13 @@ import {
   uuid,
   vector,
 } from "drizzle-orm/pg-core";
+
+/** Raw binary column (Postgres `bytea`), surfaced to JS as a Node `Buffer`. */
+const bytea = customType<{ data: Buffer; driverData: Buffer }>({
+  dataType() {
+    return "bytea";
+  },
+});
 
 /**
  * Embedding vector size. MUST match EMBEDDING_DIMENSION in the environment and
@@ -155,15 +163,42 @@ export const queryLogMoments = pgTable(
     queryLogId: uuid("query_log_id")
       .notNull()
       .references(() => queryLogs.id, { onDelete: "cascade" }),
-    momentId: uuid("moment_id")
-      .notNull()
-      .references(() => moments.id, { onDelete: "cascade" }),
+    // Nullable + set null so deleting a moment (e.g. when its transcript is
+    // deleted) preserves the query-log audit row rather than cascade-removing it.
+    momentId: uuid("moment_id").references(() => moments.id, {
+      onDelete: "set null",
+    }),
     score: real("score").notNull(),
+    // Snapshots captured at query time so the audit log survives even after the
+    // source moment/transcript is renamed or deleted.
+    momentTitle: text("moment_title"),
+    momentQuote: text("moment_quote"),
+    transcriptTitle: text("transcript_title"),
   },
   (table) => [
     index("query_log_moments_log_idx").on(table.queryLogId),
   ],
 );
+
+/**
+ * Generated text-to-speech narration of an answer, keyed 1:1 to its query log.
+ * Stored inline as `bytea` so audio persists with the audit trail and can be
+ * replayed/downloaded without external object storage.
+ */
+export const queryLogAudio = pgTable("query_log_audio", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  queryLogId: uuid("query_log_id")
+    .notNull()
+    .unique()
+    .references(() => queryLogs.id, { onDelete: "cascade" }),
+  mimeType: text("mime_type").notNull(),
+  voice: text("voice").notNull(),
+  model: text("model").notNull(),
+  audio: bytea("audio").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true })
+    .notNull()
+    .defaultNow(),
+});
 
 export type AllowedEmail = typeof allowedEmails.$inferSelect;
 export type NewAllowedEmail = typeof allowedEmails.$inferInsert;
@@ -179,3 +214,5 @@ export type QueryLog = typeof queryLogs.$inferSelect;
 export type NewQueryLog = typeof queryLogs.$inferInsert;
 export type QueryLogMoment = typeof queryLogMoments.$inferSelect;
 export type NewQueryLogMoment = typeof queryLogMoments.$inferInsert;
+export type QueryLogAudio = typeof queryLogAudio.$inferSelect;
+export type NewQueryLogAudio = typeof queryLogAudio.$inferInsert;

@@ -24,6 +24,10 @@ export function notFound(message = "Not found") {
   return NextResponse.json({ error: message }, { status: 404 });
 }
 
+export function conflict(message: string, extra?: Record<string, unknown>) {
+  return NextResponse.json({ error: message, ...extra }, { status: 409 });
+}
+
 /** Map thrown errors to a JSON response. Zod -> 400, "not found" -> 404, else 500. */
 export function handleError(error: unknown) {
   if (error instanceof NotAuthorizedError) {

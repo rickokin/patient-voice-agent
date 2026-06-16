@@ -1,6 +1,12 @@
-import { desc, eq } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { moments, queryLogMoments, queryLogs } from "@/db/schema";
+import {
+  moments,
+  queryLogAudio,
+  queryLogMoments,
+  queryLogs,
+  users,
+} from "@/db/schema";
 
 export interface RecordQueryInput {
   askedBy?: string | null;
@@ -9,7 +15,13 @@ export interface RecordQueryInput {
   answer: string;
   model: string;
   latencyMs: number;
-  moments: { momentId: string; score: number }[];
+  moments: {
+    momentId: string;
+    score: number;
+    title: string;
+    quote: string;
+    transcriptTitle: string;
+  }[];
 }
 
 export async function recordQuery(input: RecordQueryInput): Promise<string> {
@@ -31,6 +43,9 @@ export async function recordQuery(input: RecordQueryInput): Promise<string> {
         queryLogId: log.id,
         momentId: m.momentId,
         score: m.score,
+        momentTitle: m.title,
+        momentQuote: m.quote,
+        transcriptTitle: m.transcriptTitle,
       })),
     );
   }
@@ -40,8 +55,19 @@ export async function recordQuery(input: RecordQueryInput): Promise<string> {
 
 export async function listQueryLogs(limit = 100) {
   return db
-    .select()
+    .select({
+      id: queryLogs.id,
+      askedBy: queryLogs.askedBy,
+      askedByEmail: users.email,
+      question: queryLogs.question,
+      audienceMode: queryLogs.audienceMode,
+      answer: queryLogs.answer,
+      model: queryLogs.model,
+      latencyMs: queryLogs.latencyMs,
+      createdAt: queryLogs.createdAt,
+    })
     .from(queryLogs)
+    .leftJoin(users, eq(users.id, queryLogs.askedBy))
     .orderBy(desc(queryLogs.createdAt))
     .limit(limit);
 }
@@ -51,16 +77,27 @@ export async function getQueryLogWithMoments(id: string) {
   const [log] = await db.select().from(queryLogs).where(eq(queryLogs.id, id));
   if (!log) return null;
 
+  // Left join so cited rows persist even after the underlying moment is deleted
+  // (e.g. its transcript was removed). Prefer the query-time snapshot, falling
+  // back to the live moment for older rows that predate snapshotting.
   const cited = await db
     .select({
+      id: queryLogMoments.id,
       momentId: queryLogMoments.momentId,
       score: queryLogMoments.score,
-      title: moments.title,
-      quote: moments.quote,
+      transcriptTitle: queryLogMoments.transcriptTitle,
+      title: sql<string>`coalesce(${queryLogMoments.momentTitle}, ${moments.title}, '(deleted moment)')`,
+      quote: sql<string>`coalesce(${queryLogMoments.momentQuote}, ${moments.quote}, '')`,
     })
     .from(queryLogMoments)
-    .innerJoin(moments, eq(moments.id, queryLogMoments.momentId))
+    .leftJoin(moments, eq(moments.id, queryLogMoments.momentId))
     .where(eq(queryLogMoments.queryLogId, id));
 
-  return { ...log, moments: cited };
+  // Whether generated TTS narration exists for this log (drives admin playback).
+  const [audio] = await db
+    .select({ id: queryLogAudio.id })
+    .from(queryLogAudio)
+    .where(eq(queryLogAudio.queryLogId, id));
+
+  return { ...log, moments: cited, hasAudio: !!audio };
 }

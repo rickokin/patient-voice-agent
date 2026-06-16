@@ -36,6 +36,10 @@ const envSchema = z.object({
   EMBEDDING_MODEL: z.string().default("gemini-embedding-001"),
   EMBEDDING_DIMENSION: z.coerce.number().int().positive().default(768),
   RETRIEVAL_TOP_K: z.coerce.number().int().positive().default(6),
+
+  // Text-to-speech (Gemini-only; uses GEMINI_API_KEY regardless of LLM_PROVIDER)
+  LLM_TTS_MODEL: z.string().default("gemini-2.5-flash-preview-tts"),
+  TTS_VOICE: z.string().default("Kore"),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -87,6 +91,19 @@ export function requireEmbeddingApiKey(): string {
     );
   }
   return key;
+}
+
+/**
+ * API key for Gemini specifically. Text-to-speech is only available via Gemini,
+ * so it always requires GEMINI_API_KEY even when LLM_PROVIDER is openai/anthropic.
+ */
+export function requireGeminiApiKey(): string {
+  if (!env.GEMINI_API_KEY) {
+    throw new Error(
+      "GEMINI_API_KEY is not set. Text-to-speech requires a Gemini API key in .env.local.",
+    );
+  }
+  return env.GEMINI_API_KEY;
 }
 
 function providerKey(provider: "gemini" | "openai" | "anthropic"): string | undefined {

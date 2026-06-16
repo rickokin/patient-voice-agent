@@ -1,5 +1,5 @@
 import { getQueryLogWithMoments } from "@/core/query-logs/query-log-service";
-import { requireUserId } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { handleError, json, notFound } from "@/lib/http";
 
 export async function GET(
@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requireUserId();
+    await requireAdmin();
     const { id } = await params;
     const log = await getQueryLogWithMoments(id);
     if (!log) return notFound("Query log not found");

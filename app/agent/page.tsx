@@ -2,26 +2,54 @@
 
 import { useState } from "react";
 import { api } from "@/lib/api";
+import { usePreferences } from "@/lib/preferences";
 import { AUDIENCE_MODES, type AskResult, type AudienceMode } from "@/core/types";
 
 export default function AgentPage() {
+  const { preferences } = usePreferences();
   const [question, setQuestion] = useState("");
   const [audienceMode, setAudienceMode] = useState<AudienceMode>("general");
   const [result, setResult] = useState<AskResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [audioBusy, setAudioBusy] = useState(false);
+  const [audioReady, setAudioReady] = useState(false);
+  const [audioError, setAudioError] = useState<string | null>(null);
+
+  function resetAudio() {
+    setAudioBusy(false);
+    setAudioReady(false);
+    setAudioError(null);
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
     setError(null);
     setResult(null);
+    resetAudio();
     try {
       setResult(await api.ask({ question, audienceMode }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
       setBusy(false);
+    }
+  }
+
+  async function readAloud() {
+    if (!result) return;
+    setAudioBusy(true);
+    setAudioError(null);
+    try {
+      await api.generateAnswerAudio(result.queryLogId);
+      setAudioReady(true);
+    } catch (err) {
+      setAudioError(
+        err instanceof Error ? err.message : "Could not generate audio",
+      );
+    } finally {
+      setAudioBusy(false);
     }
   }
 
@@ -87,6 +115,45 @@ export default function AgentPage() {
               {result.model} - {result.latencyMs}ms -{" "}
               {result.supportingMoments.length} supporting moments
             </p>
+
+            <div className="mt-4 border-t border-zinc-100 pt-4 dark:border-zinc-800">
+              {!audioReady && (
+                <button
+                  type="button"
+                  onClick={readAloud}
+                  disabled={audioBusy}
+                  className="inline-flex items-center gap-2 rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800"
+                >
+                  {audioBusy ? "Generating audio..." : "Read aloud"}
+                </button>
+              )}
+
+              {audioError && (
+                <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                  {audioError}
+                </p>
+              )}
+
+              {audioReady && (
+                <div className="space-y-2">
+                  <audio
+                    controls
+                    autoPlay
+                    src={api.answerAudioUrl(result.queryLogId)}
+                    className="w-full"
+                  >
+                    Your browser does not support the audio element.
+                  </audio>
+                  <a
+                    href={api.answerAudioUrl(result.queryLogId)}
+                    download={`answer-${result.queryLogId}.wav`}
+                    className="inline-flex items-center gap-2 text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+                  >
+                    Download audio
+                  </a>
+                </div>
+              )}
+            </div>
           </div>
 
           {result.supportingMoments.length > 0 && (
@@ -108,6 +175,16 @@ export default function AgentPage() {
                         {(m.score * 100).toFixed(0)}% match
                       </span>
                     </div>
+                    {preferences.showTranscriptTitles && m.transcriptTitle && (
+                      <div className="mt-1 flex items-center gap-2 text-xs text-zinc-500">
+                        <span className="font-medium uppercase tracking-wide">
+                          Transcript
+                        </span>
+                        <span className="truncate text-zinc-700 dark:text-zinc-300">
+                          {m.transcriptTitle}
+                        </span>
+                      </div>
+                    )}
                     <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
                       {m.summary}
                     </p>

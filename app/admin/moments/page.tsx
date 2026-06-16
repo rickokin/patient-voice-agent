@@ -6,26 +6,51 @@ import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import { MOMENT_STATUSES } from "@/core/types";
 import { MomentCard } from "@/components/admin/moment-card";
-import type { Moment } from "@/db/schema";
+import type { MomentWithEmbedding } from "@/core/types";
+import type { Transcript } from "@/db/schema";
 
 const FILTERS = ["all", ...MOMENT_STATUSES] as const;
 
 function MomentsView() {
   const searchParams = useSearchParams();
-  const transcriptId = searchParams.get("transcriptId") ?? undefined;
+  const urlTranscriptId = searchParams.get("transcriptId") ?? "";
 
-  const [moments, setMoments] = useState<Moment[]>([]);
+  const [moments, setMoments] = useState<MomentWithEmbedding[]>([]);
+  const [transcripts, setTranscripts] = useState<Transcript[]>([]);
+  const [transcriptId, setTranscriptId] = useState<string>(urlTranscriptId);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("all");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    setTranscriptId(urlTranscriptId);
+  }, [urlTranscriptId]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = await api.listTranscripts();
+        if (!cancelled) setTranscripts(data);
+      } catch {
+        if (!cancelled) setTranscripts([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const transcriptTitle =
+    transcripts.find((t) => t.id === transcriptId)?.title ?? null;
 
   const load = useCallback(async () => {
     setError(null);
     try {
       const data = await api.listMoments({
         status: filter === "all" ? undefined : filter,
-        transcriptId,
+        transcriptId: transcriptId || undefined,
       });
       setMoments(data);
     } catch (e) {
@@ -40,9 +65,21 @@ function MomentsView() {
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
-          Story Moments
-        </h1>
+        <div>
+          <h1 className="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">
+            Story Moments
+          </h1>
+          {transcriptId && transcriptTitle && (
+            <p className="mt-1 text-base font-medium text-zinc-600 dark:text-zinc-300">
+              {transcriptTitle}
+            </p>
+          )}
+          {transcriptId && !transcriptTitle && (
+            <p className="mt-1 text-base font-medium text-zinc-600 dark:text-zinc-300">
+              Selected transcript
+            </p>
+          )}
+        </div>
         <Link
           href="/admin/transcripts"
           className="text-sm text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200"
@@ -54,13 +91,35 @@ function MomentsView() {
       {transcriptId && (
         <p className="mt-2 text-sm text-zinc-500">
           Filtered to one transcript.{" "}
-          <Link href="/admin/moments" className="underline">
+          <button
+            type="button"
+            onClick={() => setTranscriptId("")}
+            className="underline"
+          >
             Show all
-          </Link>
+          </button>
         </p>
       )}
 
-      <div className="mt-5 flex items-center justify-between gap-3">
+      <div className="mt-5">
+        <label className="block text-xs font-medium text-zinc-500">
+          Transcript
+        </label>
+        <select
+          value={transcriptId}
+          onChange={(e) => setTranscriptId(e.target.value)}
+          className="mt-1 w-full rounded-md border border-zinc-300 bg-transparent px-2 py-1.5 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        >
+          <option value="">All transcripts</option>
+          {transcripts.map((t) => (
+            <option key={t.id} value={t.id}>
+              {t.title}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between gap-3">
         <div className="flex flex-wrap gap-2">
           {FILTERS.map((f) => (
             <button

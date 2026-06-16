@@ -40,19 +40,36 @@ async function findAllowlistMatch(
   return row ?? null;
 }
 
+/** Application-level roles derived from the allowlist role. */
+export type AppRole = "admin" | "user";
+
 /**
- * Resolve the internal user id for the current Clerk session.
+ * Whether an allowlist role grants admin (full) access. `curator` is treated as
+ * admin so existing curators keep their access; everything else is a standard
+ * user with agent-only access.
+ */
+export function isAdminRole(role: string): boolean {
+  return role === "admin" || role === "curator";
+}
+
+/**
+ * Resolve the internal user id AND live allowlist role for the current Clerk
+ * session.
  *
  * Access is restricted to known users: a Clerk identity is only provisioned
  * into `users` when its primary email is on the `allowed_emails` allowlist, and
  * the allowlist is re-checked on every call so access can be revoked by removing
- * the email (no auto-trust of arbitrary Clerk accounts).
+ * the email (no auto-trust of arbitrary Clerk accounts). The returned `role` is
+ * the live allowlist role (source of truth), so role changes take effect without
+ * touching the `users` row.
  *
  * Returns null when auth is disabled, there is no session, or the current user
- * is not (or no longer) allowlisted. Protected route handlers should call
- * `requireUserId()` instead so unauthorized callers get a 403.
+ * is not (or no longer) allowlisted.
  */
-export async function getCurrentUserId(): Promise<string | null> {
+export async function getCurrentUser(): Promise<{
+  id: string;
+  role: string;
+} | null> {
   if (!authEnabled) return null;
 
   // Imported lazily so the module is usable when Clerk is not configured.
@@ -69,7 +86,7 @@ export async function getCurrentUserId(): Promise<string | null> {
   // cheaply (no Clerk API round-trip) so access can be revoked.
   if (existing?.email) {
     const match = await findAllowlistMatch([existing.email]);
-    return match ? existing.id : null;
+    return match ? { id: existing.id, role: match.role } : null;
   }
 
   // Otherwise we need the Clerk email(s): a first sign-in, or a legacy row
@@ -92,7 +109,7 @@ export async function getCurrentUserId(): Promise<string | null> {
       .update(users)
       .set({ email: match.email })
       .where(eq(users.id, existing.id));
-    return existing.id;
+    return { id: existing.id, role: match.role };
   }
 
   const [created] = await db
@@ -100,13 +117,37 @@ export async function getCurrentUserId(): Promise<string | null> {
     .values({ clerkUserId, email: match.email, role: match.role })
     .onConflictDoNothing({ target: users.clerkUserId })
     .returning({ id: users.id });
-  if (created) return created.id;
+  if (created) return { id: created.id, role: match.role };
 
   const [again] = await db
     .select({ id: users.id })
     .from(users)
     .where(eq(users.clerkUserId, clerkUserId));
-  return again?.id ?? null;
+  return again ? { id: again.id, role: match.role } : null;
+}
+
+/**
+ * Resolve just the internal user id for the current Clerk session. Returns null
+ * when auth is disabled, there is no session, or the user is not allowlisted.
+ * Protected route handlers should call `requireUserId()` so unauthorized callers
+ * get a 403.
+ */
+export async function getCurrentUserId(): Promise<string | null> {
+  if (!authEnabled) return null;
+  const user = await getCurrentUser();
+  return user?.id ?? null;
+}
+
+/**
+ * Resolve the current user's application role. Returns "admin" when auth is
+ * disabled (local/dev), null when signed-out or not allowlisted, otherwise maps
+ * the live allowlist role via `isAdminRole`.
+ */
+export async function getCurrentRole(): Promise<AppRole | null> {
+  if (!authEnabled) return "admin";
+  const user = await getCurrentUser();
+  if (!user) return null;
+  return isAdminRole(user.role) ? "admin" : "user";
 }
 
 /**
@@ -119,4 +160,16 @@ export async function requireUserId(): Promise<string | null> {
   const userId = await getCurrentUserId();
   if (!userId) throw new NotAuthorizedError();
   return userId;
+}
+
+/**
+ * Like `requireUserId`, but additionally requires the user to have an admin role
+ * (`admin`/`curator`). Throws `NotAuthorizedError` (HTTP 403) otherwise. Returns
+ * null only when auth is disabled (local/dev). Use in admin-only route handlers.
+ */
+export async function requireAdmin(): Promise<string | null> {
+  if (!authEnabled) return null;
+  const user = await getCurrentUser();
+  if (!user || !isAdminRole(user.role)) throw new NotAuthorizedError();
+  return user.id;
 }

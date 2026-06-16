@@ -3,7 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { api } from "@/lib/api";
+import type { MomentStats } from "@/core/types";
 import type { Transcript } from "@/db/schema";
+
+const EMPTY_STATS: MomentStats = {
+  total: 0,
+  draft: 0,
+  approved: 0,
+  rejected: 0,
+  embedded: 0,
+};
 
 const STATUS_STYLES: Record<string, string> = {
   uploaded: "bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300",
@@ -13,13 +22,34 @@ const STATUS_STYLES: Record<string, string> = {
 
 export default function TranscriptsPage() {
   const [transcripts, setTranscripts] = useState<Transcript[]>([]);
+  const [stats, setStats] = useState<Record<string, MomentStats>>({});
   const [title, setTitle] = useState("");
+  // Tracks whether the current title came from a file upload (vs. typed by the
+  // user) so a subsequent upload can replace it without clobbering manual edits.
+  const [titleAutoFilled, setTitleAutoFilled] = useState(false);
   const [rawText, setRawText] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [sourceType, setSourceType] = useState<string | null>(null);
+  const [reviewId, setReviewId] = useState<string | null>(null);
+  const [reviewText, setReviewText] = useState("");
+  const [reviewTitle, setReviewTitle] = useState("");
+
+  function openReview(t: Transcript) {
+    setError(null);
+    setMessage(null);
+    setReviewId(t.id);
+    setReviewTitle(t.title);
+    setReviewText(t.rawText);
+  }
+
+  function closeReview() {
+    setReviewId(null);
+    setReviewText("");
+    setReviewTitle("");
+  }
 
   async function handleFile(file: File) {
     setError(null);
@@ -30,8 +60,9 @@ export default function TranscriptsPage() {
       setRawText(parsed.text);
       setFileName(file.name);
       setSourceType(parsed.sourceType);
-      if (!title.trim()) {
+      if (!title.trim() || titleAutoFilled) {
         setTitle(parsed.title);
+        setTitleAutoFilled(true);
       }
       setMessage(`Loaded "${file.name}". Review the text below before saving.`);
     } catch (e) {
@@ -46,7 +77,12 @@ export default function TranscriptsPage() {
 
   const load = useCallback(async () => {
     try {
-      setTranscripts(await api.listTranscripts());
+      const [list, momentStats] = await Promise.all([
+        api.listTranscripts(),
+        api.momentStats(),
+      ]);
+      setTranscripts(list);
+      setStats(momentStats);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load transcripts");
     }
@@ -98,6 +134,7 @@ export default function TranscriptsPage() {
                 sourceType: sourceType ?? "pasted",
               });
               setTitle("");
+              setTitleAutoFilled(false);
               setRawText("");
               setFileName(null);
               setSourceType(null);
@@ -108,7 +145,10 @@ export default function TranscriptsPage() {
         >
           <input
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              setTitleAutoFilled(false);
+            }}
             placeholder="Title"
             required
             className="w-full rounded-md border border-zinc-300 bg-transparent px-3 py-2 text-sm dark:border-zinc-700"
@@ -183,15 +223,56 @@ export default function TranscriptsPage() {
                 <h3 className="font-medium text-zinc-900 dark:text-zinc-50">
                   {t.title}
                 </h3>
-                <span
-                  className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs ${
-                    STATUS_STYLES[t.status] ?? STATUS_STYLES.uploaded
-                  }`}
-                >
-                  {t.status}
-                </span>
+                <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                  <span
+                    className={`inline-block rounded-full px-2 py-0.5 text-xs ${
+                      STATUS_STYLES[t.status] ?? STATUS_STYLES.uploaded
+                    }`}
+                  >
+                    {t.status}
+                  </span>
+                  {(() => {
+                    const s = stats[t.id] ?? EMPTY_STATS;
+                    return (
+                      <>
+                        <span
+                          className="inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300"
+                          title="Total moments extracted"
+                        >
+                          {s.total} {s.total === 1 ? "moment" : "moments"}
+                        </span>
+                        <span
+                          className="inline-block rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800 dark:bg-green-950 dark:text-green-300"
+                          title="Approved moments"
+                        >
+                          {s.approved} approved
+                        </span>
+                        <span
+                          className="inline-block rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800 dark:bg-red-950 dark:text-red-300"
+                          title="Rejected moments"
+                        >
+                          {s.rejected} rejected
+                        </span>
+                        <span
+                          className="inline-block rounded-full bg-indigo-100 px-2 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-950 dark:text-indigo-300"
+                          title="Moments with an embedding (searchable)"
+                        >
+                          {s.embedded} embedded
+                        </span>
+                      </>
+                    );
+                  })()}
+                </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={() =>
+                    reviewId === t.id ? closeReview() : openReview(t)
+                  }
+                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                >
+                  {reviewId === t.id ? "Close" : "Re-review"}
+                </button>
                 <button
                   onClick={() =>
                     void run(`norm-${t.id}`, async () => {
@@ -213,8 +294,13 @@ export default function TranscriptsPage() {
                       await load();
                     })
                   }
-                  disabled={busy === `ext-${t.id}`}
-                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-50 disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                  disabled={busy === `ext-${t.id}` || t.status === "uploaded"}
+                  title={
+                    t.status === "uploaded"
+                      ? "Normalize the transcript before extracting moments."
+                      : undefined
+                  }
+                  className="rounded-md border border-zinc-300 px-3 py-1.5 text-xs font-medium hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
                 >
                   {busy === `ext-${t.id}` ? "Extracting..." : "Extract moments"}
                 </button>
@@ -224,8 +310,80 @@ export default function TranscriptsPage() {
                 >
                   View moments
                 </Link>
+                <button
+                  onClick={() => {
+                    const confirmed = window.confirm(
+                      `Delete "${t.title}"? This permanently removes the transcript and all of its story moments and embeddings. Query log history is preserved.`,
+                    );
+                    if (!confirmed) return;
+                    void run(`del-${t.id}`, async () => {
+                      await api.deleteTranscript(t.id);
+                      if (reviewId === t.id) closeReview();
+                      setMessage(`Deleted "${t.title}".`);
+                      await load();
+                    });
+                  }}
+                  disabled={busy === `del-${t.id}`}
+                  className="rounded-md border border-red-300 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 dark:border-red-900 dark:text-red-400 dark:hover:bg-red-950"
+                >
+                  {busy === `del-${t.id}` ? "Deleting..." : "Delete"}
+                </button>
               </div>
             </div>
+
+            {reviewId === t.id && (
+              <div className="mt-4 space-y-3 border-t border-zinc-200 pt-4 dark:border-zinc-800">
+                <p className="text-xs text-zinc-500">
+                  Re-review the raw transcript below, then reprocess to re-run
+                  normalize and extraction as an update to this transcript.
+                </p>
+                <input
+                  value={reviewTitle}
+                  onChange={(e) => setReviewTitle(e.target.value)}
+                  placeholder="Title"
+                  className="w-full rounded-md border border-zinc-300 bg-transparent px-3 py-2 text-sm dark:border-zinc-700"
+                />
+                <textarea
+                  value={reviewText}
+                  onChange={(e) => setReviewText(e.target.value)}
+                  rows={10}
+                  className="w-full rounded-md border border-zinc-300 bg-transparent px-3 py-2 font-mono text-sm dark:border-zinc-700"
+                />
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const confirmed = window.confirm(
+                        "Reprocess this transcript? This re-runs normalize + extraction and REPLACES all existing story moments for this transcript (including approved/embedded ones).",
+                      );
+                      if (!confirmed) return;
+                      void run(`reproc-${t.id}`, async () => {
+                        const res = await api.reprocessTranscript(t.id, {
+                          title: reviewTitle,
+                          rawText: reviewText,
+                        });
+                        setMessage(
+                          `Reprocessed "${res.transcript.title}" — replaced moments with ${res.count} freshly extracted.`,
+                        );
+                        closeReview();
+                        await load();
+                      });
+                    }}
+                    disabled={busy === `reproc-${t.id}` || !reviewText.trim()}
+                    className="rounded-md bg-indigo-600 px-4 py-2 text-xs font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                  >
+                    {busy === `reproc-${t.id}`
+                      ? "Reprocessing..."
+                      : "Reprocess (update)"}
+                  </button>
+                  <button
+                    onClick={closeReview}
+                    className="rounded-md border border-zinc-300 px-4 py-2 text-xs font-medium hover:bg-zinc-50 dark:border-zinc-700 dark:hover:bg-zinc-800"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         ))}
       </section>

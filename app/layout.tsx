@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
+import { PreferencesProvider } from "@/lib/preferences";
+import { getCurrentRole } from "@/lib/auth";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -22,19 +24,22 @@ export const metadata: Metadata = {
 
 const authEnabled = !!process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const role = await getCurrentRole();
   const tree = (
     <html
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <SiteHeader authEnabled={authEnabled} />
-        {children}
+        <PreferencesProvider>
+          <SiteHeader authEnabled={authEnabled} role={role} />
+          {children}
+        </PreferencesProvider>
       </body>
     </html>
   );

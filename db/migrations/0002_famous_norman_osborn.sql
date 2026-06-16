@@ -1,0 +1,1 @@
+ALTER TABLE "query_log_moments" ADD COLUMN "transcript_title" text;

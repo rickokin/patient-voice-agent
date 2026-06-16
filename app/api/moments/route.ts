@@ -1,11 +1,11 @@
 import { listMoments } from "@/core/moments/moment-service";
 import { MOMENT_STATUSES, type MomentStatus } from "@/core/types";
-import { requireUserId } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { handleError, json } from "@/lib/http";
 
 export async function GET(req: Request) {
   try {
-    await requireUserId();
+    await requireAdmin();
     const { searchParams } = new URL(req.url);
     const statusParam = searchParams.get("status");
     const transcriptId = searchParams.get("transcriptId") ?? undefined;

@@ -2,7 +2,7 @@ import {
   extractTextFromFile,
   UnsupportedFileError,
 } from "@/core/transcripts/file-extract";
-import { requireUserId } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { badRequest, handleError, json } from "@/lib/http";
 
 export const runtime = "nodejs";
@@ -17,7 +17,7 @@ const MAX_BYTES = 20 * 1024 * 1024;
  */
 export async function POST(req: Request) {
   try {
-    await requireUserId();
+    await requireAdmin();
 
     const form = await req.formData();
     const file = form.get("file");

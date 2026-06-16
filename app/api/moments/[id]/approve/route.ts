@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { approveMoment, rejectMoment } from "@/core/moments/moment-service";
 import { embedMoment } from "@/core/embeddings/embedding-service";
-import { requireUserId } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { handleError, json } from "@/lib/http";
 
 const bodySchema = z
@@ -16,7 +16,7 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const approvedBy = await requireUserId();
+    const approvedBy = await requireAdmin();
     const { id } = await params;
     const raw = await req.json().catch(() => ({}));
     const { action, embed } = bodySchema.parse(raw);

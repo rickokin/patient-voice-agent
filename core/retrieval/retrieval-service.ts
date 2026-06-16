@@ -1,6 +1,6 @@
 import { eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
-import { moments, momentEmbeddings } from "@/db/schema";
+import { moments, momentEmbeddings, transcripts } from "@/db/schema";
 import { getEmbeddingProvider } from "@/core/llm";
 import { env } from "@/lib/env";
 import type { SupportingMoment } from "@/core/types";
@@ -34,10 +34,12 @@ export async function retrieve(
       quote: moments.quote,
       themes: moments.themes,
       audienceTags: moments.audienceTags,
+      transcriptTitle: transcripts.title,
       distance,
     })
     .from(moments)
     .innerJoin(momentEmbeddings, eq(momentEmbeddings.momentId, moments.id))
+    .innerJoin(transcripts, eq(transcripts.id, moments.transcriptId))
     .where(eq(moments.status, "approved"))
     .orderBy(distance)
     .limit(topK);
@@ -49,6 +51,7 @@ export async function retrieve(
     quote: r.quote,
     themes: r.themes,
     audienceTags: r.audienceTags,
+    transcriptTitle: r.transcriptTitle,
     score: 1 - Number(r.distance),
   }));
 

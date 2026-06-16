@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { updateMoment } from "@/core/moments/moment-service";
-import { requireUserId } from "@/lib/auth";
+import { requireAdmin } from "@/lib/auth";
 import { handleError, json } from "@/lib/http";
 
 const patchSchema = z.object({
@@ -18,7 +18,7 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    await requireUserId();
+    await requireAdmin();
     const { id } = await params;
     const patch = patchSchema.parse(await req.json());
     return json(await updateMoment(id, patch));

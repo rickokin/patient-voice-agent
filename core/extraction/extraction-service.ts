@@ -14,6 +14,17 @@ interface ExtractionResult {
 }
 
 /**
+ * Thrown when extraction is attempted on a transcript that has not yet been
+ * normalized. Mapped to HTTP 400 by the API layer.
+ */
+export class TranscriptNotNormalizedError extends Error {
+  constructor() {
+    super("Transcript must be normalized before moments can be extracted.");
+    this.name = "TranscriptNotNormalizedError";
+  }
+}
+
+/**
  * Extract draft story moments from a transcript's normalized text using the
  * configured extraction LLM, then persist them as `draft` moments.
  */
@@ -24,8 +35,11 @@ export async function extractMoments(transcriptId: string) {
     .where(eq(transcripts.id, transcriptId));
   if (!transcript) throw new Error("Transcript not found.");
 
-  const text = transcript.normalizedText ?? transcript.rawText;
-  if (!text.trim()) throw new Error("Transcript has no text to extract from.");
+  if (!transcript.normalizedText?.trim()) {
+    throw new TranscriptNotNormalizedError();
+  }
+
+  const text = transcript.normalizedText;
 
   const llm = getExtractionLLM();
   const result = await llm.generateStructured<ExtractionResult>({

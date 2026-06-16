@@ -1,6 +1,12 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getCurrentRole } from "@/lib/auth";
 
-export default function Home() {
+export default async function Home() {
+  // Standard users only have agent access; send them straight there. Admins and
+  // signed-out visitors see the landing page below.
+  if ((await getCurrentRole()) === "user") redirect("/agent");
+
   return (
     <div className="flex flex-1 flex-col items-center justify-center bg-zinc-50 px-6 py-24 dark:bg-black">
       <main className="w-full max-w-2xl">

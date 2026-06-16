@@ -4,8 +4,13 @@
  * Only emails on this list can sign in and be provisioned into `users`.
  * Use it to bootstrap the first admins (there is no in-app UI for it yet).
  *
+ * Roles:
+ *   - "admin" or "curator" -> full access (admin area + agent)
+ *   - any other value (e.g. "user") -> standard user, agent access only
+ *
  *   npm run allowlist -- list
- *   npm run allowlist -- add <email> [role]      # role defaults to "curator"
+ *   npm run allowlist -- add <email> [role]      # role defaults to "curator" (admin)
+ *   npm run allowlist -- add <email> user        # standard, agent-only user
  *   npm run allowlist -- remove <email>
  *
  * Reads DATABASE_URL from .env.local.

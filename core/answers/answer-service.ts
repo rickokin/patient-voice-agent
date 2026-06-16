@@ -50,7 +50,13 @@ export async function ask(input: AskInput): Promise<AskResult> {
     answer,
     model: llm.model,
     latencyMs,
-    moments: supportingMoments.map((m) => ({ momentId: m.id, score: m.score })),
+    moments: supportingMoments.map((m) => ({
+      momentId: m.id,
+      score: m.score,
+      title: m.title,
+      quote: m.quote,
+      transcriptTitle: m.transcriptTitle,
+    })),
   });
 
   return {
