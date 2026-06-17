@@ -50,9 +50,9 @@ export async function ask(input: AskInput): Promise<AskResult> {
         responseStyle,
         supportingMoments,
       ),
-      // The humanized style leans on warmth and voice, so give it a little more
-      // room to breathe than the precise baseline answer.
-      temperature: responseStyle === "humanized" ? 0.6 : 0.3,
+      // The warmer, voice-forward styles lean on warmth and tone, so give them a
+      // little more room to breathe than the precise baseline answer.
+      temperature: responseStyle === "baseline" ? 0.3 : 0.6,
     });
   }
 

@@ -37,9 +37,17 @@ export function isAudienceMode(value: unknown): value is AudienceMode {
 /**
  * The style/voice of the generated answer. `baseline` is the original concise,
  * neutral, grounded response; `humanized` is a warmer, conversational response
- * that foregrounds human connection with the people behind the moments.
+ * that foregrounds human connection with the people behind the moments; `human1`
+ * is a warm, conversational response that interweaves quotes without any citation
+ * symbols; `human-ee` is a conversational, empathetic response that lets
+ * participants' voices lead with direct quotes and inline citations.
  */
-export const RESPONSE_STYLES = ["baseline", "humanized"] as const;
+export const RESPONSE_STYLES = [
+  "baseline",
+  "humanized",
+  "human1",
+  "human-ee",
+] as const;
 
 export type ResponseStyle = (typeof RESPONSE_STYLES)[number];
 
