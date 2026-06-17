@@ -16,6 +16,11 @@ const sections = [
     title: "Query Logs",
     description: "Inspect agent questions, answers, and cited moments.",
   },
+  {
+    href: "/admin/artifacts",
+    title: "Generated Artifacts",
+    description: "Review Helpful Artifacts generated from agent answers.",
+  },
 ];
 
 export default function AdminHome() {
@@ -29,7 +34,7 @@ export default function AdminHome() {
         story moments.
       </p>
 
-      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {sections.map((s) => (
           <Link
             key={s.href}

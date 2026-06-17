@@ -10,6 +10,7 @@ import type {
   TranslationAudience,
   TranslationResult,
 } from "@/core/types";
+import type { ArtifactType, GeneratedArtifact } from "@/lib/artifact-types";
 
 export interface QueryLogListItem extends QueryLog {
   askedByEmail: string | null;
@@ -175,6 +176,28 @@ export const api = {
       `/api/insight/moments/${momentId}/similar`,
       { method: "POST", body: JSON.stringify(topK ? { topK } : {}) },
     ),
+
+  // Helpful Artifacts
+  generateArtifact: (input: {
+    artifactType: ArtifactType;
+    question: string;
+    answer?: string;
+    mode?: AudienceMode;
+    queryId?: string;
+    retrievedMomentIds?: string[];
+  }) =>
+    apiFetch<GeneratedArtifact>("/api/agent/artifacts/generate", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  listArtifactsForQuery: (queryId: string) =>
+    apiFetch<GeneratedArtifact[]>(
+      `/api/agent/artifacts?queryId=${encodeURIComponent(queryId)}`,
+    ),
+  getArtifact: (id: string) =>
+    apiFetch<GeneratedArtifact>(`/api/agent/artifacts/${id}`),
+  listRecentArtifacts: (limit = 100) =>
+    apiFetch<GeneratedArtifact[]>(`/api/admin/artifacts?limit=${limit}`),
 
   // Query logs
   listQueryLogs: () => apiFetch<QueryLogListItem[]>("/api/query-logs"),

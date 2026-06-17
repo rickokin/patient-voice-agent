@@ -201,6 +201,42 @@ export const queryLogAudio = pgTable("query_log_audio", {
     .defaultNow(),
 });
 
+/**
+ * Consumer-facing "Helpful Artifacts" generated from an agent answer + the
+ * retrieved story moments. These are preparation/reflection tools (never
+ * medical advice). Kept independent of the curation tables so the feature can
+ * be reused by a separate consumer-facing agent app. `query_id` is nullable +
+ * set null so an artifact survives deletion of its originating query log.
+ */
+export const generatedArtifacts = pgTable(
+  "generated_artifacts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Stored as text (not a users FK) so the feature can persist artifacts for
+    // anonymous/consumer sessions in a future app without a provisioned user.
+    userId: text("user_id"),
+    queryId: uuid("query_id").references(() => queryLogs.id, {
+      onDelete: "set null",
+    }),
+    artifactType: text("artifact_type").notNull(),
+    artifactTitle: text("artifact_title").notNull(),
+    sourceQuestion: text("source_question").notNull(),
+    sourceAnswer: text("source_answer"),
+    retrievedMomentIds: uuid("retrieved_moment_ids").array().notNull().default([]),
+    contentJson: jsonb("content_json").notNull(),
+    contentMarkdown: text("content_markdown").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (table) => [
+    index("generated_artifacts_query_idx").on(table.queryId),
+    index("generated_artifacts_user_idx").on(table.userId),
+    index("generated_artifacts_type_idx").on(table.artifactType),
+    index("generated_artifacts_created_idx").on(table.createdAt),
+  ],
+);
+
 export type AllowedEmail = typeof allowedEmails.$inferSelect;
 export type NewAllowedEmail = typeof allowedEmails.$inferInsert;
 export type User = typeof users.$inferSelect;
@@ -217,3 +253,5 @@ export type QueryLogMoment = typeof queryLogMoments.$inferSelect;
 export type NewQueryLogMoment = typeof queryLogMoments.$inferInsert;
 export type QueryLogAudio = typeof queryLogAudio.$inferSelect;
 export type NewQueryLogAudio = typeof queryLogAudio.$inferInsert;
+export type GeneratedArtifactRow = typeof generatedArtifacts.$inferSelect;
+export type NewGeneratedArtifactRow = typeof generatedArtifacts.$inferInsert;

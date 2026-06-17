@@ -1,4 +1,4 @@
-import { and, eq, ne, sql } from "drizzle-orm";
+import { and, eq, inArray, ne, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { moments, momentEmbeddings, transcripts } from "@/db/schema";
 import { getEmbeddingProvider } from "@/core/llm";
@@ -76,6 +76,48 @@ export async function retrieveByText(
 ): Promise<SupportingMoment[]> {
   const [vector] = await getEmbeddingProvider().embed([query]);
   return retrieve(vector, options);
+}
+
+/**
+ * Load specific moments by id and shape them as `SupportingMoment`s, preserving
+ * the order of the requested ids. Used to re-hydrate the grounding moments for a
+ * previously answered question (e.g. when generating a Helpful Artifact from the
+ * moment ids returned with an answer). `score` is set to 0 since these are not
+ * the result of a fresh similarity search. Unknown/deleted ids are skipped.
+ */
+export async function getSupportingMomentsByIds(
+  ids: string[],
+): Promise<SupportingMoment[]> {
+  if (ids.length === 0) return [];
+
+  const rows = await db
+    .select({
+      id: moments.id,
+      title: moments.title,
+      summary: moments.summary,
+      quote: moments.quote,
+      themes: moments.themes,
+      audienceTags: moments.audienceTags,
+      transcriptTitle: transcripts.title,
+    })
+    .from(moments)
+    .innerJoin(transcripts, eq(transcripts.id, moments.transcriptId))
+    .where(inArray(moments.id, ids));
+
+  const byId = new Map(rows.map((r) => [r.id, r]));
+  return ids
+    .map((id) => byId.get(id))
+    .filter((r): r is (typeof rows)[number] => r != null)
+    .map((r) => ({
+      id: r.id,
+      title: r.title,
+      summary: r.summary,
+      quote: r.quote,
+      themes: r.themes,
+      audienceTags: r.audienceTags,
+      transcriptTitle: r.transcriptTitle,
+      score: 0,
+    }));
 }
 
 /**

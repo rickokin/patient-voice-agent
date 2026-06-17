@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { usePreferences } from "@/lib/preferences";
+import { HelpfulArtifactsPanel } from "@/components/agent/helpful-artifacts-panel";
 import {
   AUDIENCE_MODES,
   RESPONSE_STYLES,
@@ -18,6 +19,7 @@ import {
 export default function AgentPage() {
   const { preferences } = usePreferences();
   const [question, setQuestion] = useState("");
+  const [askedQuestion, setAskedQuestion] = useState("");
   const [audienceMode, setAudienceMode] = useState<AudienceMode>("general");
   const [responseStyle, setResponseStyle] =
     useState<ResponseStyle>("baseline");
@@ -45,6 +47,7 @@ export default function AgentPage() {
     resetAudio();
     try {
       setResult(await api.ask({ question, audienceMode, responseStyle }));
+      setAskedQuestion(question);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -279,6 +282,14 @@ export default function AgentPage() {
               </ol>
             </div>
           )}
+
+          <HelpfulArtifactsPanel
+            question={askedQuestion}
+            answer={result.answer}
+            queryId={result.queryLogId}
+            mode={result.audienceMode}
+            retrievedMomentIds={result.supportingMoments.map((m) => m.id)}
+          />
         </div>
       )}
     </div>
