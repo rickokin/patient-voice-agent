@@ -12,6 +12,7 @@ export interface RecordQueryInput {
   askedBy?: string | null;
   question: string;
   audienceMode: string;
+  responseStyle: string;
   answer: string;
   model: string;
   latencyMs: number;
@@ -31,6 +32,7 @@ export async function recordQuery(input: RecordQueryInput): Promise<string> {
       askedBy: input.askedBy ?? null,
       question: input.question,
       audienceMode: input.audienceMode,
+      responseStyle: input.responseStyle,
       answer: input.answer,
       model: input.model,
       latencyMs: input.latencyMs,
@@ -61,6 +63,7 @@ export async function listQueryLogs(limit = 100) {
       askedByEmail: users.email,
       question: queryLogs.question,
       audienceMode: queryLogs.audienceMode,
+      responseStyle: queryLogs.responseStyle,
       answer: queryLogs.answer,
       model: queryLogs.model,
       latencyMs: queryLogs.latencyMs,

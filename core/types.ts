@@ -34,6 +34,24 @@ export function isAudienceMode(value: unknown): value is AudienceMode {
   );
 }
 
+/**
+ * The style/voice of the generated answer. `baseline` is the original concise,
+ * neutral, grounded response; `humanized` is a warmer, conversational response
+ * that foregrounds human connection with the people behind the moments.
+ */
+export const RESPONSE_STYLES = ["baseline", "humanized"] as const;
+
+export type ResponseStyle = (typeof RESPONSE_STYLES)[number];
+
+export const DEFAULT_RESPONSE_STYLE: ResponseStyle = "baseline";
+
+export function isResponseStyle(value: unknown): value is ResponseStyle {
+  return (
+    typeof value === "string" &&
+    (RESPONSE_STYLES as readonly string[]).includes(value)
+  );
+}
+
 export const TRANSCRIPT_STATUSES = [
   "uploaded",
   "normalized",
@@ -60,6 +78,7 @@ export interface SupportingMoment {
 export interface AskResult {
   answer: string;
   audienceMode: AudienceMode;
+  responseStyle: ResponseStyle;
   supportingMoments: SupportingMoment[];
   queryLogId: string;
   model: string;

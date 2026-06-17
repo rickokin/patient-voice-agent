@@ -1,13 +1,22 @@
 import { getEmbeddingProvider, getGenerationLLM } from "@/core/llm";
 import { retrieve } from "@/core/retrieval/retrieval-service";
 import { recordQuery } from "@/core/query-logs/query-log-service";
-import { ANSWER_SYSTEM, buildAnswerPrompt } from "@/core/prompts/answer";
+import {
+  buildAnswerPrompt,
+  getResponseStylePrompt,
+} from "@/core/prompts/answer";
 import { env } from "@/lib/env";
-import type { AskResult, AudienceMode } from "@/core/types";
+import {
+  DEFAULT_RESPONSE_STYLE,
+  type AskResult,
+  type AudienceMode,
+  type ResponseStyle,
+} from "@/core/types";
 
 export interface AskInput {
   question: string;
   audienceMode: AudienceMode;
+  responseStyle?: ResponseStyle;
   askedBy?: string | null;
 }
 
@@ -20,6 +29,8 @@ const NO_CONTEXT_ANSWER =
  */
 export async function ask(input: AskInput): Promise<AskResult> {
   const start = Date.now();
+  const responseStyle = input.responseStyle ?? DEFAULT_RESPONSE_STYLE;
+  const style = getResponseStylePrompt(responseStyle);
 
   const [queryVector] = await getEmbeddingProvider().embed([input.question]);
   const supportingMoments = await retrieve(queryVector, {
@@ -32,13 +43,16 @@ export async function ask(input: AskInput): Promise<AskResult> {
     answer = NO_CONTEXT_ANSWER;
   } else {
     answer = await llm.generate({
-      system: ANSWER_SYSTEM,
+      system: style.system,
       prompt: buildAnswerPrompt(
         input.question,
         input.audienceMode,
+        responseStyle,
         supportingMoments,
       ),
-      temperature: 0.3,
+      // The humanized style leans on warmth and voice, so give it a little more
+      // room to breathe than the precise baseline answer.
+      temperature: responseStyle === "humanized" ? 0.6 : 0.3,
     });
   }
 
@@ -47,6 +61,7 @@ export async function ask(input: AskInput): Promise<AskResult> {
     askedBy: input.askedBy ?? null,
     question: input.question,
     audienceMode: input.audienceMode,
+    responseStyle,
     answer,
     model: llm.model,
     latencyMs,
@@ -62,6 +77,7 @@ export async function ask(input: AskInput): Promise<AskResult> {
   return {
     answer,
     audienceMode: input.audienceMode,
+    responseStyle,
     supportingMoments,
     queryLogId,
     model: llm.model,

@@ -1,0 +1,1 @@
+ALTER TABLE "query_logs" ADD COLUMN "response_style" text DEFAULT 'baseline' NOT NULL;

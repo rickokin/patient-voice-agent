@@ -147,6 +147,7 @@ export const queryLogs = pgTable("query_logs", {
   }),
   question: text("question").notNull(),
   audienceMode: text("audience_mode").notNull(),
+  responseStyle: text("response_style").notNull().default("baseline"),
   answer: text("answer").notNull(),
   model: text("model").notNull(),
   latencyMs: integer("latency_ms"),

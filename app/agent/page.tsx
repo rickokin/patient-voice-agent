@@ -3,18 +3,33 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { usePreferences } from "@/lib/preferences";
-import { AUDIENCE_MODES, type AskResult, type AudienceMode } from "@/core/types";
+import {
+  AUDIENCE_MODES,
+  RESPONSE_STYLES,
+  type AskResult,
+  type AudienceMode,
+  type ResponseStyle,
+} from "@/core/types";
+import {
+  RESPONSE_STYLE_PROMPTS,
+  getResponseStylePrompt,
+} from "@/core/prompts/answer";
 
 export default function AgentPage() {
   const { preferences } = usePreferences();
   const [question, setQuestion] = useState("");
   const [audienceMode, setAudienceMode] = useState<AudienceMode>("general");
+  const [responseStyle, setResponseStyle] =
+    useState<ResponseStyle>("baseline");
+  const [showPrompts, setShowPrompts] = useState(false);
   const [result, setResult] = useState<AskResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [audioBusy, setAudioBusy] = useState(false);
   const [audioReady, setAudioReady] = useState(false);
   const [audioError, setAudioError] = useState<string | null>(null);
+
+  const activeStyle = getResponseStylePrompt(responseStyle);
 
   function resetAudio() {
     setAudioBusy(false);
@@ -29,7 +44,7 @@ export default function AgentPage() {
     setResult(null);
     resetAudio();
     try {
-      setResult(await api.ask({ question, audienceMode }));
+      setResult(await api.ask({ question, audienceMode, responseStyle }));
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
     } finally {
@@ -71,7 +86,7 @@ export default function AgentPage() {
           rows={3}
           className="w-full rounded-md border border-zinc-300 bg-transparent px-3 py-2 text-sm dark:border-zinc-700"
         />
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <label className="text-sm text-zinc-600 dark:text-zinc-400">
             Audience
           </label>
@@ -86,6 +101,24 @@ export default function AgentPage() {
               </option>
             ))}
           </select>
+
+          <label className="text-sm text-zinc-600 dark:text-zinc-400">
+            Response type
+          </label>
+          <select
+            value={responseStyle}
+            onChange={(e) =>
+              setResponseStyle(e.target.value as ResponseStyle)
+            }
+            className="rounded-md border border-zinc-300 bg-transparent px-2 py-1.5 text-sm dark:border-zinc-700"
+          >
+            {RESPONSE_STYLES.map((s) => (
+              <option key={s} value={s}>
+                {RESPONSE_STYLE_PROMPTS[s].label}
+              </option>
+            ))}
+          </select>
+
           <button
             type="submit"
             disabled={busy}
@@ -93,6 +126,42 @@ export default function AgentPage() {
           >
             {busy ? "Thinking..." : "Ask"}
           </button>
+        </div>
+
+        <div className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-800 dark:bg-zinc-900/50">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-xs text-zinc-500 dark:text-zinc-400">
+              {activeStyle.description}
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowPrompts((v) => !v)}
+              className="shrink-0 text-xs font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+            >
+              {showPrompts ? "Hide prompts" : "View prompts"}
+            </button>
+          </div>
+
+          {showPrompts && (
+            <div className="mt-3 space-y-3 border-t border-zinc-200 pt-3 dark:border-zinc-800">
+              <div>
+                <h4 className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                  System prompt
+                </h4>
+                <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-zinc-700 dark:text-zinc-300">
+                  {activeStyle.system}
+                </p>
+              </div>
+              <div>
+                <h4 className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                  Answer instruction
+                </h4>
+                <p className="mt-1 whitespace-pre-wrap text-xs leading-5 text-zinc-700 dark:text-zinc-300">
+                  {activeStyle.instruction}
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </form>
 
@@ -112,7 +181,9 @@ export default function AgentPage() {
               {result.answer}
             </p>
             <p className="mt-3 text-xs text-zinc-400">
-              {result.model} - {result.latencyMs}ms -{" "}
+              {RESPONSE_STYLE_PROMPTS[result.responseStyle]?.label ??
+                result.responseStyle}{" "}
+              - {result.model} - {result.latencyMs}ms -{" "}
               {result.supportingMoments.length} supporting moments
             </p>
 

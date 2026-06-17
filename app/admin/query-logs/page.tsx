@@ -110,7 +110,10 @@ export default function QueryLogsPage() {
                 </p>
                 <p className="mt-1 text-xs text-zinc-400">
                   <span className="capitalize">{log.audienceMode}</span> -{" "}
-                  {log.model} - {log.latencyMs ?? "?"}ms -{" "}
+                  <span className="capitalize">
+                    {log.responseStyle ?? "baseline"}
+                  </span>{" "}
+                  - {log.model} - {log.latencyMs ?? "?"}ms -{" "}
                   {new Date(log.createdAt).toLocaleString()}
                 </p>
               </div>

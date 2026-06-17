@@ -4,6 +4,7 @@ import type {
   AudienceMode,
   MomentStats,
   MomentWithEmbedding,
+  ResponseStyle,
 } from "@/core/types";
 
 export interface QueryLogListItem extends QueryLog {
@@ -128,7 +129,11 @@ export const api = {
     }),
 
   // Agent
-  ask: (input: { question: string; audienceMode: AudienceMode }) =>
+  ask: (input: {
+    question: string;
+    audienceMode: AudienceMode;
+    responseStyle: ResponseStyle;
+  }) =>
     apiFetch<AskResult>("/api/agent/ask", {
       method: "POST",
       body: JSON.stringify(input),

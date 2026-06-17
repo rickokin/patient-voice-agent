@@ -36,6 +36,13 @@
       "when": 1781639121261,
       "tag": "0004_redundant_silver_fox",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1781709027608,
+      "tag": "0005_careless_magneto",
+      "breakpoints": true
     }
   ]
 }
