@@ -101,3 +101,132 @@ export interface ExtractedMoment {
   themes: string[];
   audienceTags: string[];
 }
+
+/* -------------------------------------------------------------------------- */
+/* Insight Studio (second agent) types                                        */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * The layers a suggested follow-up question can belong to. The Insight Studio
+ * groups generated follow-ups under these headings so the reader can explore an
+ * insight from multiple angles rather than down a single thread.
+ */
+export const FOLLOWUP_LAYERS = [
+  "emotional",
+  "system",
+  "decision",
+  "audience",
+  "evidence",
+] as const;
+
+export type FollowUpLayer = (typeof FOLLOWUP_LAYERS)[number];
+
+/** Human-readable labels for each follow-up layer, shown as group headings. */
+export const FOLLOWUP_LAYER_LABELS: Record<FollowUpLayer, string> = {
+  emotional: "Emotional layer",
+  system: "System layer",
+  decision: "Decision layer",
+  audience: "Audience-specific layer",
+  evidence: "Evidence / gap layer",
+};
+
+export function isFollowUpLayer(value: unknown): value is FollowUpLayer {
+  return (
+    typeof value === "string" &&
+    (FOLLOWUP_LAYERS as readonly string[]).includes(value)
+  );
+}
+
+/** A single suggested follow-up question, tagged with the layer it explores. */
+export interface FollowUpQuestion {
+  layer: FollowUpLayer;
+  question: string;
+}
+
+/**
+ * A supporting moment enriched into a "story card" for the exploration
+ * workspace. Extends the retrieved moment with narrative framing that is
+ * generated at answer time when it is not stored on the moment itself.
+ */
+export interface StoryMomentCard extends SupportingMoment {
+  /** A short narrative label, e.g. "The Self-Doubt Moment". */
+  narrativeLabel: string;
+  /** Emotional texture tags, e.g. "fear", "relief". */
+  emotionalTags: string[];
+  /** Barriers the person encountered, e.g. "cost", "dismissed by clinician". */
+  barrierTags: string[];
+  /** Where this sits in the patient journey, e.g. "diagnosis", "treatment". */
+  journeyStage: string;
+  /** Why this moment matters for the current question/audience. */
+  whyItMatters: string;
+}
+
+/** Result of an Insight Studio ask: a grounded answer plus exploration aids. */
+export interface InsightResult {
+  answer: string;
+  audienceMode: AudienceMode;
+  responseStyle: ResponseStyle;
+  queryLogId: string;
+  model: string;
+  latencyMs: number;
+  storyCards: StoryMomentCard[];
+  followUps: FollowUpQuestion[];
+}
+
+/**
+ * The audiences an existing insight can be re-expressed for. These differ from
+ * the retrieval `AudienceMode`s: translation reframes the SAME evidence into a
+ * format tailored to a downstream reader without retrieving new moments.
+ */
+export const TRANSLATION_AUDIENCES = [
+  "clinicians",
+  "researchers",
+  "product",
+  "policymakers",
+  "comms",
+] as const;
+
+export type TranslationAudience = (typeof TRANSLATION_AUDIENCES)[number];
+
+export function isTranslationAudience(
+  value: unknown,
+): value is TranslationAudience {
+  return (
+    typeof value === "string" &&
+    (TRANSLATION_AUDIENCES as readonly string[]).includes(value)
+  );
+}
+
+/** Display metadata for each translation audience action. */
+export const TRANSLATION_AUDIENCE_META: Record<
+  TranslationAudience,
+  { label: string; blurb: string }
+> = {
+  clinicians: {
+    label: "For clinicians",
+    blurb: "Care implications and what to do differently at the bedside.",
+  },
+  researchers: {
+    label: "For researchers",
+    blurb: "Patterns, hypotheses, and gaps worth studying further.",
+  },
+  product: {
+    label: "For product teams",
+    blurb: "Unmet needs and opportunities to build better solutions.",
+  },
+  policymakers: {
+    label: "For policymakers",
+    blurb: "Systemic, access, and equity implications at population scale.",
+  },
+  comms: {
+    label: "For messaging / comms",
+    blurb: "A faithful, human narrative for outreach and communications.",
+  },
+};
+
+/** Result of translating an insight for a downstream audience. */
+export interface TranslationResult {
+  audience: TranslationAudience;
+  translation: string;
+  model: string;
+}

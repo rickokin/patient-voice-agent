@@ -91,6 +91,12 @@ export function SiteHeader({
         >
           Agent
         </Link>
+        <Link
+          href="/studio"
+          className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-50"
+        >
+          Insight Studio
+        </Link>
         {authEnabled && (
           <>
             <Show when="signed-out">

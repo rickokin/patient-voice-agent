@@ -22,7 +22,7 @@ export default async function Home() {
           approved story moments, never invented.
         </p>
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-2">
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <Link
             href="/admin"
             className="group rounded-xl border border-zinc-200 bg-white p-6 transition-colors hover:border-indigo-400 dark:border-zinc-800 dark:bg-zinc-900"
@@ -46,6 +46,24 @@ export default async function Home() {
             <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
               Ask questions, choose an audience mode, and get answers grounded in
               supporting story moments.
+            </p>
+          </Link>
+
+          <Link
+            href="/studio"
+            className="group rounded-xl border border-zinc-200 bg-white p-6 transition-colors hover:border-indigo-400 dark:border-zinc-800 dark:bg-zinc-900"
+          >
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">
+                Insight Studio
+              </h2>
+              <span className="rounded-full bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">
+                New
+              </span>
+            </div>
+            <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">
+              An exploration workspace: story moment cards, suggested follow-ups,
+              find-similar search, and audience translations.
             </p>
           </Link>
         </div>

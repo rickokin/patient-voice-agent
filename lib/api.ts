@@ -2,9 +2,13 @@ import type { Moment, QueryLog, Transcript } from "@/db/schema";
 import type {
   AskResult,
   AudienceMode,
+  InsightResult,
   MomentStats,
   MomentWithEmbedding,
   ResponseStyle,
+  SupportingMoment,
+  TranslationAudience,
+  TranslationResult,
 } from "@/core/types";
 
 export interface QueryLogListItem extends QueryLog {
@@ -145,6 +149,32 @@ export const api = {
     ),
   answerAudioUrl: (queryLogId: string) =>
     `/api/query-logs/${queryLogId}/audio`,
+
+  // Insight Studio (second agent)
+  askInsight: (input: {
+    question: string;
+    audienceMode: AudienceMode;
+    responseStyle: ResponseStyle;
+  }) =>
+    apiFetch<InsightResult>("/api/insight/ask", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  translateInsight: (input: {
+    audience: TranslationAudience;
+    question: string;
+    answer: string;
+    moments: SupportingMoment[];
+  }) =>
+    apiFetch<TranslationResult>("/api/insight/translate", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  findSimilarMoments: (momentId: string, topK?: number) =>
+    apiFetch<{ count: number; moments: SupportingMoment[] }>(
+      `/api/insight/moments/${momentId}/similar`,
+      { method: "POST", body: JSON.stringify(topK ? { topK } : {}) },
+    ),
 
   // Query logs
   listQueryLogs: () => apiFetch<QueryLogListItem[]>("/api/query-logs"),
