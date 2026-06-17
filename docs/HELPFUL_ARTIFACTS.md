@@ -192,10 +192,10 @@ Indexes: `query_id`, `user_id`, `artifact_type`, `created_at`.
 | Moment re-hydration by id | `core/retrieval/retrieval-service.ts` (`getSupportingMomentsByIds`) |
 | Routes | `app/api/agent/artifacts/**`, `app/api/admin/artifacts/route.ts` |
 | Panel + viewer | `components/agent/helpful-artifacts-panel.tsx`, `components/agent/generated-artifact-viewer.tsx` |
-| Print / "Save as PDF" HTML builder (pure) | `lib/artifact-print.ts` |
+| "Save as PDF" builder (pure, jsPDF) | `lib/artifact-pdf.ts` |
 | Agent integration | `app/agent/page.tsx` |
 | Admin view | `app/admin/artifacts/page.tsx` |
-| Tests | `tests/artifact-types.test.ts`, `tests/artifact-content.test.ts` |
+| Tests | `tests/artifact-types.test.ts`, `tests/artifact-content.test.ts`, `tests/artifact-pdf.test.ts` |
 
 Route handlers are thin; business logic lives in `core/`.
 
@@ -230,15 +230,18 @@ npm test
 
 Covers artifact-type validation/metadata lookup, the section normalizer, the
 JSON→content normalizer (including type forcing + disclaimer enforcement), the
-markdown fallback when the model omits `markdown`, and the printable-HTML builder
-(escaping, section rendering, disclaimer placement).
+markdown fallback when the model omits `markdown`, and the PDF builder
+(valid PDF output, multi-page flow, filename slugifying).
 
 ## 9. Export / "Save as PDF"
 
-The artifact viewer has a **Save as PDF** button. Rather than pulling in a PDF
-dependency, it opens a print-optimized HTML document (built by
-`buildArtifactPrintHtml`, with all user/model text HTML-escaped) in a new window
-that auto-triggers the browser print dialog — where the user can choose "Save as
-PDF". This works identically in the agent flow and the admin viewer, and is fully
-client-side (no extra route or auth surface). If pop-ups are blocked, the viewer
-shows a hint to allow them.
+The artifact viewer has a **Save as PDF** button. It generates a real,
+vector-text PDF entirely client-side (via `jspdf`) and downloads it directly —
+no popup window and no browser print dialog. The document is built by
+`buildArtifactPdf` (`lib/artifact-pdf.ts`), which lays out the structured
+content (title, metadata, source question, summary, sections, and the standard
+disclaimer) with automatic page breaks; the filename comes from
+`buildArtifactPdfFilename` (slugified title). The builder is DOM-free so it's
+unit-tested and reusable by the consumer-facing app. This works identically in
+the agent flow and the admin viewer (no extra route or auth surface). If
+generation fails, the viewer shows an inline error.

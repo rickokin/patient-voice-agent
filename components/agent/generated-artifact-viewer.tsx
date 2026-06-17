@@ -5,7 +5,7 @@ import {
   ARTIFACT_DISCLAIMER,
   type GeneratedArtifact,
 } from "@/lib/artifact-types";
-import { buildArtifactPrintHtml } from "@/lib/artifact-print";
+import { buildArtifactPdf, buildArtifactPdfFilename } from "@/lib/artifact-pdf";
 
 /** Render one section's items as a paragraph (prose) or a bullet list. */
 function SectionBody({ items }: { items: string[] }) {
@@ -44,7 +44,7 @@ export function GeneratedArtifactViewer({
 }) {
   const [copied, setCopied] = useState(false);
 
-  const [printError, setPrintError] = useState(false);
+  const [pdfError, setPdfError] = useState(false);
 
   async function copy() {
     try {
@@ -56,17 +56,15 @@ export function GeneratedArtifactViewer({
     }
   }
 
-  /** Open a print-optimized window so the user can "Save as PDF" via print. */
+  /** Generate a real PDF client-side and download it (no popup/print dialog). */
   function saveAsPdf() {
-    setPrintError(false);
-    const win = window.open("", "_blank", "noopener,noreferrer");
-    if (!win) {
-      // Popup was blocked; surface a hint rather than failing silently.
-      setPrintError(true);
-      return;
+    setPdfError(false);
+    try {
+      const doc = buildArtifactPdf(artifact);
+      doc.save(buildArtifactPdfFilename(artifact));
+    } catch {
+      setPdfError(true);
     }
-    win.document.write(buildArtifactPrintHtml(artifact));
-    win.document.close();
   }
 
   // Don't double-render a disclaimer section; it's always shown at the bottom.
@@ -150,9 +148,9 @@ export function GeneratedArtifactViewer({
             >
               Save as PDF
             </button>
-            {printError && (
+            {pdfError && (
               <span className="text-xs text-red-600 dark:text-red-400">
-                Allow pop-ups to save as PDF.
+                Couldn&apos;t generate the PDF. Please try again.
               </span>
             )}
           </div>
